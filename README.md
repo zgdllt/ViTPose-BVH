@@ -231,6 +231,104 @@ For ViTPose+ pre-trained models, please first re-organize the pre-trained weight
 python tools/model_split.py --source <Pretrained PATH>
 ```
 
+## Video to BVH Export
+
+This repository includes tools to export single-person videos to **BVH (Biovision Hierarchy)** format for motion capture data, compatible with Blender and other 3D animation software.
+
+### Features
+
+- **End-to-end pipeline**: Video → 2D pose (COCO17) → 3D lifting → BVH export
+- **Motion quality**: Bone-length locking, temporal smoothing (OneEuro filter), and root rotation estimation
+- **Platform support**: Auto-selects device (MPS for Apple Silicon → CUDA → CPU)
+- **Blender-compatible**: Exports standard BVH format with Z-up coordinate system
+
+### Installation (macOS with MPS)
+
+For Apple Silicon Macs with MPS (Metal Performance Shaders) support:
+
+```bash
+# Install PyTorch with MPS support
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Install dependencies
+pip install numpy scipy mmcv-full
+```
+
+For other platforms, follow the standard [Usage](#usage) installation instructions above.
+
+### Quick Start: Export Video to BVH
+
+```bash
+python tools/export_video_to_bvh.py \
+    --input /path/to/video.mp4 \
+    --output /path/to/output.bvh \
+    --pose-config configs/body/2d_kpt_sview_rgb_img/topdown_heatmap/coco/ViTPose_base_coco_256x192.py \
+    --pose-checkpoint checkpoints/vitpose-b.pth
+```
+
+**With person detection and 3D lifting** (recommended for best quality):
+
+```bash
+python tools/export_video_to_bvh.py \
+    --input /path/to/video.mp4 \
+    --output /path/to/output.bvh \
+    --det-config demo/mmdetection_cfg/faster_rcnn_r50_fpn_coco.py \
+    --det-checkpoint checkpoints/faster_rcnn_r50_fpn_1x_coco_20200130-047c8b04.pth \
+    --pose-config configs/body/2d_kpt_sview_rgb_img/topdown_heatmap/coco/ViTPose_base_coco_256x192.py \
+    --pose-checkpoint checkpoints/vitpose-b.pth \
+    --pose-lifter-config configs/body/3d_kpt_sview_rgb_vid/video_pose_lift/h36m/videopose3d_h36m_243frames_fullconv_supervised_cpn_ft.py \
+    --pose-lifter-checkpoint checkpoints/videopose_h36m_243frames_fullconv_supervised_cpn_ft-88f5abbb_20210527.pth
+```
+
+**Advanced options**:
+
+```bash
+# Adjust smoothing parameters for smoother or more responsive motion
+python tools/export_video_to_bvh.py \
+    --input video.mp4 \
+    --output output.bvh \
+    --pose-config <config> \
+    --pose-checkpoint <checkpoint> \
+    --smooth-type oneeuro \
+    --min-cutoff 0.004 \
+    --beta 0.7 \
+    --root-min-cutoff 0.001 \
+    --root-beta 0.3
+```
+
+### Importing BVH into Blender
+
+1. Open Blender
+2. Go to **File → Import → Motion Capture (.bvh)**
+3. Select your exported `.bvh` file
+4. Adjust import settings:
+   - **Scale**: Default (1.0) or adjust based on your scene
+   - **Rotation**: Leave as default (Blender handles BVH coordinate system)
+   - **Forward/Up Axis**: Auto-detected from BVH
+5. Click **Import BVH**
+
+The skeleton will appear in your scene with the animation data. You can:
+- Preview the animation in the timeline
+- Retarget to a custom rig
+- Apply constraints or modify the motion
+
+### Tips for Best Results
+
+- **Lighting**: Use well-lit videos for better pose detection
+- **Single person**: The tool tracks a single person (largest bbox/highest score)
+- **Frame rate**: Uses the video's native FPS for accurate timing
+- **Smoothing**: Adjust `--min-cutoff` (lower = smoother) and `--beta` (higher = more responsive)
+- **Root smoothing**: Root rotation has stronger smoothing by default for stability
+
+### Module Structure
+
+The BVH export pipeline is organized into reusable modules:
+
+- `vitpose_bvh/skeleton.py` - COCO17 skeleton hierarchy and virtual joint creation
+- `vitpose_bvh/filters.py` - OneEuro filter and temporal smoothing
+- `vitpose_bvh/ik.py` - Rotation estimation and Euler angle conversions
+- `vitpose_bvh/bvh_writer.py` - BVH file format writer
+
 ## Todo
 
 This repo current contains modifications including:
