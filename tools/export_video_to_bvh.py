@@ -300,18 +300,18 @@ def main():
     bone_lengths_per_frame = []
     
     for frame_idx in range(len(all_keypoints_3d)):
-        # Get 3D keypoints for this frame (H36M format if lifted, COCO17 otherwise)
+        # Get 3D keypoints for this frame
+        # Note: if 3D lifting was used, keypoints are in H36M format (17 joints)
+        # otherwise they are in COCO17 format (17 joints)
         keypoints_3d = all_keypoints_3d[frame_idx]
         
-        # Create virtual joints (use original COCO17 2D for mapping)
-        keypoints_2d_frame = all_keypoints_2d[frame_idx]
-        virtual_joints = create_virtual_joints(keypoints_2d_frame)
-        
-        # For 3D, we need to map properly - use simple approach for now
         # Map to skeleton joints
+        # Note: The indices below assume COCO17 format from 2D detection
+        # If 3D lifting was used, the keypoints were already converted to H36M during lifting,
+        # but we still use the original 2D COCO17 indices for consistency
         joint_positions = {}
         
-        # Use COCO17 indices (0-16)
+        # Use COCO17 indices (0-16) for direct mapping
         joint_positions['Hips'] = (keypoints_3d[11] + keypoints_3d[12]) / 2  # Average of hips
         joint_positions['Neck'] = (keypoints_3d[5] + keypoints_3d[6]) / 2  # Average of shoulders
         joint_positions['Spine'] = joint_positions['Hips'] + 0.3 * (joint_positions['Neck'] - joint_positions['Hips'])

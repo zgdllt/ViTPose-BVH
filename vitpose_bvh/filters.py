@@ -71,8 +71,9 @@ class OneEuroFilter:
         a_d = self._smoothing_factor(t_e, self.d_cutoff)
         dx_hat = self._exponential_smoothing(a_d, dx, self.dx_prev)
         
-        # Calculate adaptive cutoff
-        cutoff = self.min_cutoff + self.beta * np.abs(dx_hat)
+        # Calculate adaptive cutoff (use mean for multi-dimensional arrays)
+        dx_magnitude = np.mean(np.abs(dx_hat)) if dx_hat.ndim > 0 else np.abs(dx_hat)
+        cutoff = self.min_cutoff + self.beta * dx_magnitude
         
         # Smooth value
         a = self._smoothing_factor(t_e, cutoff)
@@ -153,5 +154,15 @@ def moving_average_filter(data: np.ndarray, window_length: int = 5, axis: int = 
     Returns:
         Filtered data
     """
-    from scipy.ndimage import uniform_filter1d
-    return uniform_filter1d(data, size=window_length, axis=axis, mode='nearest')
+    try:
+        from scipy.ndimage import uniform_filter1d
+        return uniform_filter1d(data, size=window_length, axis=axis, mode='nearest')
+    except ImportError:
+        # Fallback: simple numpy-based moving average
+        kernel = np.ones(window_length) / window_length
+        if data.ndim == 1:
+            return np.convolve(data, kernel, mode='same')
+        else:
+            # Apply along specified axis
+            result = np.apply_along_axis(lambda x: np.convolve(x, kernel, mode='same'), axis, data)
+            return result
